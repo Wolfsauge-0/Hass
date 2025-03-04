@@ -1,2 +1,12 @@
 - name: Refresh facts
   ansible.builtin.setup:
+
+- name: Restart networking
+  ansible.builtin.service:
+    name: networking
+    state: restarted
+
+- name: Reload networking
+  ansible.builtin.service:
+    name: networking
+    state: reloaded

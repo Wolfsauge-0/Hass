@@ -55,3 +55,26 @@
   changed_when: address_del_if
   when: ansible_facts['ansible_' + item]['ipv4'] is defined
   loop: "{{ ansible_facts.interfaces | select('match', '^enp0.*$') | list }}"
+
+- name: Create network configuration for br0
+  ansible.builtin.copy:
+    dest: /etc/network/interfaces.d/br0
+    content: |
+      auto br0
+      iface br0 inet dhcp
+      bridge_ports enp0s31f6
+    owner: "root"
+    group: "root"
+    mode: "0755"
+  notify: Restart networking
+
+- name: Update network configuration for enp0s31f6
+  ansible.builtin.lineinfile:
+    path: /etc/network/interfaces
+    regexp: '^iface enp0s31f6'
+    line: 'iface enp0s31f6 inet manual'
+    create: true
+    owner: "root"
+    group: "root"
+    mode: "0755"
+  notify: Restart networking
