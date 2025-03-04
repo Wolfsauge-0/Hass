@@ -27,3 +27,27 @@
   notify:
     - Reload udev rules
     - Restart libvirtd
+
+- name: Set up qemu bridge acl
+  ansible.builtin.lineinfile:
+    path: /etc/qemu/bridge.conf
+    line: 'allow br0'
+    owner: root
+    group: root
+    mode: "0644"
+    create: true
+
+- name: Allow setuid for qemu-bridge-helper
+  ansible.builtin.file:
+    path: /usr/lib/qemu/qemu-bridge-helper
+    state: file
+    owner: root
+    group: root
+    mode: "04755"
+
+- name: Add user to libvirt and kvm groups
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    groups: libvirt,kvm,libvirt-qemu
+    append: true
+  loop: "{{ users }}"
