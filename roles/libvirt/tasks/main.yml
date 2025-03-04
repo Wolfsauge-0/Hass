@@ -1,0 +1,29 @@
+- name: Install required packages for libvirt/kvm
+  ansible.builtin.package:
+    name:
+      - libvirt0
+      - libvirt-clients
+      - virtinst
+      - libvirt-daemon-system
+      - qemu-kvm
+      - qemu-utils
+      - libosinfo-bin
+    state: present
+
+- name: Set up usb passthrough udev rule
+  ansible.builtin.lineinfile:
+    path: /lib/udev/rules.d/51-qemu-usb-passthrough.rules
+    line: >
+      'SUBSYSTEM=="usb",
+      ATTRS{idVendor}=="{{ item.vendor_id }}",
+      ATTRS{idProduct}=="{{ item.model_id }}",
+      OWNER="{{ item.username }}",
+      GROUP="{{ item.username }}"'
+    create: true
+    owner: "root"
+    group: "root"
+    mode: "0755"
+  loop: "{{ devices }}"
+  notify:
+    - Reload udev rules
+    - Restart libvirtd

@@ -1,0 +1,10 @@
+- name: Reload udev rules
+  ansible.builtin.command: "{{ item }}"
+  with_items:
+    - udevadm control --reload-rules
+    - udevadm trigger
+
+- name: Restart libvirtd
+  ansible.builtin.systemd:
+    name: libvirtd
+    state: restarted
