@@ -1,7 +1,9 @@
 # This is a Hack
 
-[!WARNING]
-This is strongly opinionated code created for only one purpose. It has been written by somebody knowing jack shit about ansible and just trying to get stuff up and running
+> [!WARNING]
+> This is strongly opinionated code created for only one purpose.
+> It has been written by somebody knowing jack shit about ansible and
+> is just a try to get stuff up and running.
 
 I do not claim:
 - This code is pretty
