@@ -34,20 +34,23 @@
   ansible.builtin.command: ip route append default via {{ ansible_default_ipv4.gateway }} dev br0
   register: route_add_default_br0
   changed_when: route_add_default_br0
-  when: ansible_default_ipv4.interface != br0
+  when: ansible_default_ipv4.interface != "br0"
   notify: Refresh facts
 
+- name: Get list of interfaces in br0
+  ansible.builtin.set_fact:
+    br0_interfaces: "{{ ansible_facts['ansible_br0']['interfaces'] | default([]) }}"
 
 - name: Link set if master br0
   ansible.builtin.command: ip link set {{ item }} master br0
   register: link_set_if_master_br0
   changed_when: link_set_if_master_br0
-  when: ansible_['ansible_' + item] not in ansible_br0.interfaces
+  when: item not in br0_interfaces
   loop: "{{ ansible_facts.interfaces | select('match', '^enp0.*$') | list }}"
 
 - name: Address del if
   ansible.builtin.command: >
-        ip address del {{ ansible_facts['ansible_' + item].ipv4.address }}/{{ ansible_facts['ansible_' + item].ipv4.prefix }} dev {{ item }}
+    ip address del {{ ansible_facts['ansible_' + item].ipv4.address }}/{{ ansible_facts['ansible_' + item].ipv4.prefix }} dev {{ item }}
   register: address_del_if
   changed_when: address_del_if
   when: ansible_facts['ansible_' + item]['ipv4'] is defined
