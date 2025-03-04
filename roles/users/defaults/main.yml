@@ -1,0 +1,4 @@
+ssh_keys_path: "{{ role_path }}/files"
+users:
+  - name: hass
+    uid: 1001
