@@ -1,0 +1,4 @@
+- name: Import local role in playbook
+  hosts: all
+  roles:
+    - network
