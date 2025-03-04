@@ -1,0 +1,9 @@
+hassversion: "14.2"
+users:
+  - name: hass
+    uid: 1001
+devices:
+  - name: sonoff
+    username: hass
+    vendor_id: 10c4
+    model_id: ea60

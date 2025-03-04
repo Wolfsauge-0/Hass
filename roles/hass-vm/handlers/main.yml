@@ -1,0 +1,10 @@
+- name: Remove leftover archive
+  ansible.builtin.file:
+    path: /home/"{{ user.name }}"/vm/haos_ova-"{{ hassversion }}".qcow2.xz
+    state: absent
+  loop: "{{ users }}"
+
+- name: Create net-define fact
+  ansible.builtin.set_fact:
+    "{{ item.name }}_br0_libvirt_net": true
+  loop: "{{ users }}"

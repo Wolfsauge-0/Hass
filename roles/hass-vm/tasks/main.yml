@@ -1,0 +1,109 @@
+- name: Create a directory for the virtual machine
+  ansible.builtin.file:
+    path: "/home/{{ item.name }}/vm"
+    state: directory
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: '0755'
+  loop: "{{ users }}"
+
+- name: Check if kvm image exists
+  ansible.builtin.stat:
+    path: "/home/{{ item.name }}/vm/haos_ova.qcow2"
+  register: image_files
+  loop: "{{ users }}"
+
+- name: Download the KVM image
+  ansible.builtin.get_url:
+    url: "https://github.com/home-assistant/operating-system/releases/download/{{ hassversion }}/haos_ova-{{ hassversion }}.qcow2.xz"
+    dest: "/home/{{ item.name }}/vm/haos_ova-{{ hassversion }}.qcow2.xz"
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: '0644'
+  when: not image_files.results[item_index].stat.exists
+  loop: "{{ query('items', image_files.results) | map(attribute='item') | list }}"
+  loop_control:
+    index_var: item_index
+
+- name: Extract the KVM image
+  ansible.builtin.command:
+    cmd: unxz "/home/{{ item.name }}/vm/haos_ova-{{ hassversion }}.qcow2.xz"
+    creates: "/home/{{ item.name }}/vm/haos_ova-{{ hassversion }}.qcow2"
+  notify: Remove leftover archive
+  when: not image_files.results[item_index].stat.exists
+  loop: "{{ query('items', image_files.results) | map(attribute='item') | list }}"
+  loop_control:
+    index_var: item_index
+
+- name: Copy OVMF_VARS
+  ansible.builtin.copy:
+    src: /usr/share/OVMF/OVMF_VARS_4M.ms.fd
+    dest: /home/"{{ item.name }}"/vm/OVMF_VARS_4M.ms.fd
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: '0600'
+  loop: "{{ users }}"
+
+- name: Copy virtual network xml
+  ansible.builtin.copy:
+    src: "{{ role_path }}/files/br0-network.xml"
+    dest: /home/"{{ item.name }}"/vm/br0-network.xml
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: '0600'
+  loop: "{{ users }}"
+
+- name: Copy usb device xml
+  ansible.builtin.copy:
+    src: "{{ role_path }}/files/{{ item.vendor_id }}-{{ item.model_id }}.xml"
+    dest: "/home/{{ item.username }}/vm/{{ item.vendor_id }}-{{ item.model_id }}.xml"
+    owner: "{{ item.username }}"
+    group: "{{ item.username }}"
+    mode: '0644'
+  loop: "{{ devices }}"
+
+- name: Check if virtual machine 'haos' exists
+  ansible.builtin.command: >
+    sudo -u {{ item.name }} virsh dominfo haos
+  register: vm_exists
+  failed_when: false
+  changed_when: false
+  loop: "{{ users }}"
+
+- name: Create bridged Network
+  ansible.builtin.command:
+    cmd: "sudo -u {{ item.name }} virsh net-define /home/{{ item.name }}/vm/br0-network.xml"
+  register: "net_define_br0"
+  changed_when: net_define_br0
+  notify:
+    - Create net-define fact
+    - Create bridged Network file lock
+    - Start virtual network br0
+  when: not "[ item.name ]_br0_libvirt_net"
+  loop: "{{ users }}"
+
+- name: Define the virtual machine
+  ansible.builtin.command: >
+    sudo -u hass virt-install
+    --name haos
+    --boot uefi
+    --ram 2048
+    --vcpus 2
+    --vnc
+    --vncport=5905
+    --noautoconsole
+    --disk "path=/home/{{ item.name }}/vm/haos_ova-{{ hassversion }}.qcow2,format=qcow2,bus=scsi"
+    --os-variant generic
+    --network bridge=br0,model=virtio
+    --import
+    --controller type=scsi,model=virtio-scsi
+  register: "virt_install_haos"
+  changed_when: virt_install_haos
+  when: vm_exists.stdout == ""
+  loop: "{{ users }}"
+
+- name: Attach USB device to virtual machine
+  ansible.builtin.command:
+    cmd: sudo -u hass virsh attach-device haos --file /home/hass/vm/zigbee-usb.xml --persistent --config
+  notify: create usb device file lock
+  when: not usb_pt_lock_stat.stat.exists
