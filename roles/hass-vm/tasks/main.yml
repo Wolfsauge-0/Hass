@@ -87,8 +87,8 @@
 
 - name: Check if hass VMs exists
   ansible.builtin.shell: "sudo -u {{ item.name }} virsh list --all | grep -w 'haos' || return 0"
-  changed_when: vm_check_results.results
   register: vm_check_results
+  changed_when: vm_check_results
   ignore_errors: true
   loop: "{{ users }}"
 
@@ -127,8 +127,8 @@
 
 - name: Check if USB device is attached
   ansible.builtin.shell: "virsh -u item.username dumpxml haos | grep -q '{{ item.vendor_id }}:{{ item.model_id }}' || return 0"
-  changed_when: usb_device_check_results.results
   register: usb_device_check_results
+  changed_when: usb_device_check_results
   ignore_errors: true
   loop: "{{ devices }}"
 
