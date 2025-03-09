@@ -28,6 +28,9 @@
     - Reload udev rules
     - Restart libvirtd
 
+- name: Force all notified handlers to run at this point
+  ansible.builtin.meta: flush_handlers
+
 - name: Set up qemu bridge acl
   ansible.builtin.lineinfile:
     path: /etc/qemu/bridge.conf

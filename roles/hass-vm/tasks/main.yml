@@ -82,9 +82,32 @@
   when: not "[ item.name ]_br0_libvirt_net"
   loop: "{{ users }}"
 
+- name: Force all notified handlers to run at this point
+  ansible.builtin.meta: flush_handlers
+
+- name: Check if hass VMs exists
+  ansible.builtin.shell: "sudo -u {{ item.name }} virsh list --all | grep -w 'haos' || return 0"
+  changed_when: vm_check_results.results
+  register: vm_check_results
+  ignore_errors: true
+  loop: "{{ users }}"
+
+- name: Debug vm_check_results.results
+  ansible.builtin.debug:
+    msg: "vm_check_results.results: {{ vm_check_results.results }}"
+
+- name: Set facts for all VMs
+  ansible.builtin.set_fact:
+    vm_existences: "{{ vm_existences | default({}) | combine({item.item.name: (item.rc == 0)}) }}"
+  loop: "{{ vm_check_results.results }}"
+
+- name: Debug vm_existences
+  ansible.builtin.debug:
+    msg: "vm_existences: {{ vm_existences }}"
+
 - name: Define the virtual machine
   ansible.builtin.command: >
-    sudo -u hass virt-install
+    sudo -u {{ item.name }} virt-install
     --name haos
     --boot uefi
     --ram 2048
@@ -97,13 +120,29 @@
     --network bridge=br0,model=virtio
     --import
     --controller type=scsi,model=virtio-scsi
-  register: "virt_install_haos"
-  changed_when: virt_install_haos
-  when: vm_exists.stdout == ""
+  register: "vm_create"
+  changed_when: vm_create.rc == 0
+  when: vm_existences[item.name] is not defined or not vm_existences[item.name]
   loop: "{{ users }}"
 
+- name: Check if USB device is attached
+  ansible.builtin.shell: "virsh -u item.username dumpxml haos | grep -q '{{ item.vendor_id }}:{{ item.model_id }}' || return 0"
+  changed_when: usb_device_check_results.results
+  register: usb_device_check_results
+  ignore_errors: true
+  loop: "{{ devices }}"
+
+- name: Set facts for USB device attachment status
+  ansible.builtin.set_fact:
+    device_attachment_status: "{{ device_attachment_status | default({}) | combine({item.item.name: (item.rc == 0)}) }}"
+  loop: "{{ usb_device_check_results.results }}"
+
 - name: Attach USB device to virtual machine
-  ansible.builtin.command:
-    cmd: sudo -u hass virsh attach-device haos --file /home/hass/vm/zigbee-usb.xml --persistent --config
-  notify: create usb device file lock
-  when: not usb_pt_lock_stat.stat.exists
+  ansible.builtin.command: >
+    sudo -u {{ item.username }} virsh attach-device haos
+    --file "/home/{{ item.username }}/vm/{{ item.vendor_id }}-{{ item.model_id }}.xml"
+    --persistent --config
+  register: "usb_attach"
+  changed_when: "attach_usb_result.rc == 0"
+  when: device_attachment_status[item.name] is not defined or not device_attachment_status[item.name]
+  loop: "{{ devices }}"
