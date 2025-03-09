@@ -86,7 +86,7 @@
   ansible.builtin.meta: flush_handlers
 
 - name: Check if hass VMs exists
-  ansible.builtin.shell: "sudo -u {{ item.name }} virsh list --all | grep -w 'haos' || return 0"
+  ansible.builtin.shell: "sudo -u {{ item.name }} virsh list --all | grep -w 'haos'"
   register: vm_check_results
   changed_when: vm_check_results
   ignore_errors: true
@@ -126,7 +126,7 @@
   loop: "{{ users }}"
 
 - name: Check if USB device is attached
-  ansible.builtin.shell: "virsh -u item.username dumpxml haos | grep -q '{{ item.vendor_id }}:{{ item.model_id }}' || return 0"
+  ansible.builtin.shell: "sudo -u {{ item.username}} virsh dumpxml haos | grep -q '{{ item.vendor_id }}:{{ item.model_id }}'"
   register: usb_device_check_results
   changed_when: usb_device_check_results
   ignore_errors: true
@@ -143,6 +143,6 @@
     --file "/home/{{ item.username }}/vm/{{ item.vendor_id }}-{{ item.model_id }}.xml"
     --persistent --config
   register: "usb_attach"
-  changed_when: "attach_usb_result.rc == 0"
+  changed_when: "attach_usb.rc == 0"
   when: device_attachment_status[item.name] is not defined or not device_attachment_status[item.name]
   loop: "{{ devices }}"
